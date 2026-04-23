@@ -20,8 +20,27 @@ const pendingRequests = new Map<string, PendingReq>();
 
 function handleHttp(req: IncomingMessage, res: ServerResponse): void {
   res.setHeader("Access-Control-Allow-Origin",  "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   if (req.method === "OPTIONS") { res.writeHead(204); res.end(); return; }
+
+  // POST /push  { elements, appState? }  → push scene to all connected browsers
+  if (req.method === "POST" && req.url === "/push") {
+    let body = "";
+    req.on("data", (chunk: Buffer) => { body += chunk.toString(); });
+    req.on("end", () => {
+      try {
+        const { elements, appState } = JSON.parse(body) as { elements: ExcalidrawElement[]; appState?: Partial<AppState> };
+        const sent = pushScene(elements ?? [], appState);
+        res.setHeader("Content-Type", "application/json");
+        res.writeHead(sent > 0 ? 200 : 202);
+        res.end(JSON.stringify({ ok: true, clientsReached: sent }));
+      } catch (e) {
+        res.writeHead(400); res.end(JSON.stringify({ ok: false, error: String(e) }));
+      }
+    });
+    return;
+  }
 
   if (req.url === "/bridge.js") {
     const candidates = [
@@ -78,7 +97,7 @@ export function startBridge(): void {
   }, 20_000);
 
   http.listen(BRIDGE_PORT, "127.0.0.1", () => {
-    console.error(`[Bridge] http://127.0.0.1:${BRIDGE_PORT}  (bridge.js + /status + WS)`);
+    console.error(`[Bridge] http://127.0.0.1:${BRIDGE_PORT}  (bridge.js + /status + /push + WS)`);
   });
 }
 
