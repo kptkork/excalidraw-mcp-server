@@ -5,6 +5,8 @@
  *   <script src="http://127.0.0.1:3001/bridge.js"></script>
  *
  * Features:
+ *  - Unregisters the Excalidraw Service Worker on load (prevents SW cache
+ *    from stripping this script tag on subsequent page loads)
  *  - Connects via WebSocket to the MCP bridge (ws://127.0.0.1:3001)
  *  - Discovers the Excalidraw React API via fiber traversal
  *  - "load_scene"  → calls api.updateScene() live (no reload!)
@@ -12,6 +14,19 @@
  *  - Falls back to localStorage + reload if API not yet found
  *  - Auto-reconnects on disconnect with exponential back-off
  */
+
+// ── Step 1: Kill the Service Worker so index.html is served fresh every time ──
+// The Excalidraw Docker image registers a SW that caches index.html. Without
+// this, the injected <script> tag is stripped by the SW cache on every reload.
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.getRegistrations().then(function (registrations) {
+    if (registrations.length > 0) {
+      registrations.forEach(function (r) { r.unregister(); });
+      console.log("[ExcalidrawMCP] Service Worker unregistered — bridge.js will survive page reloads.");
+    }
+  });
+}
+
 (function () {
   "use strict";
 

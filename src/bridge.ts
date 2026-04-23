@@ -18,6 +18,51 @@ type PendingReq = {
 };
 const pendingRequests = new Map<string, PendingReq>();
 
+/**
+ * Enrich a raw element with all fields Excalidraw requires to render it.
+ * Caller values always win — only missing fields are filled in.
+ * Callers only need meaningful properties (type, x, y, text, strokeColor…).
+ */
+function enrichElement(el: Record<string, unknown>): Record<string, unknown> {
+  const base: Record<string, unknown> = {
+    angle:           0,
+    opacity:         100,
+    roughness:       1,
+    strokeStyle:     "solid",
+    strokeWidth:     2,
+    fillStyle:       "hachure",
+    backgroundColor: "transparent",
+    isDeleted:       false,
+    version:         1,
+    versionNonce:    (Math.random() * 2_147_483_647) | 0,
+    seed:            (Math.random() * 2_147_483_647) | 0,
+    boundElements:   null,
+    updated:         Date.now(),
+    link:            null,
+    locked:          false,
+    groupIds:        [],
+    frameId:         null,
+  };
+  if (el["type"] === "text") {
+    Object.assign(base, {
+      lineHeight:    1.25,
+      containerId:   null,
+      autoResize:    false,
+      textAlign:     "left",
+      verticalAlign: "top",
+    });
+  }
+  if (el["type"] === "arrow" || el["type"] === "line") {
+    Object.assign(base, {
+      startArrowhead: null,
+      endArrowhead:   el["type"] === "arrow" ? "arrow" : null,
+      startBinding:   null,
+      endBinding:     null,
+    });
+  }
+  return Object.assign(base, el); // caller values override defaults
+}
+
 function handleHttp(req: IncomingMessage, res: ServerResponse): void {
   res.setHeader("Access-Control-Allow-Origin",  "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
@@ -30,11 +75,15 @@ function handleHttp(req: IncomingMessage, res: ServerResponse): void {
     req.on("data", (chunk: Buffer) => { body += chunk.toString(); });
     req.on("end", () => {
       try {
-        const { elements, appState } = JSON.parse(body) as { elements: ExcalidrawElement[]; appState?: Partial<AppState> };
-        const sent = pushScene(elements ?? [], appState);
+        const parsed = JSON.parse(body) as { elements: ExcalidrawElement[]; appState?: Partial<AppState> };
+        // Auto-enrich: fill in all required Excalidraw fields so callers don't have to
+        const elements = (parsed.elements ?? []).map(
+          (el) => enrichElement(el as unknown as Record<string, unknown>) as unknown as ExcalidrawElement
+        );
+        const sent = pushScene(elements, parsed.appState);
         res.setHeader("Content-Type", "application/json");
         res.writeHead(sent > 0 ? 200 : 202);
-        res.end(JSON.stringify({ ok: true, clientsReached: sent }));
+        res.end(JSON.stringify({ ok: true, clientsReached: sent, enriched: elements.length }));
       } catch (e) {
         res.writeHead(400); res.end(JSON.stringify({ ok: false, error: String(e) }));
       }
