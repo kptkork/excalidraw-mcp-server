@@ -1,0 +1,48 @@
+{
+  "name": "excalidraw-mcp-server",
+  "version": "1.0.0",
+  "description": "Local MCP server for Excalidraw — persistent board storage + live WebSocket bridge to the browser",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "excalidraw-mcp-server": "./dist/index.js",
+    "excalidraw-mcp-setup":  "./dist/setup.js"
+  },
+  "files": [
+    "dist",
+    "public",
+    "README.md"
+  ],
+  "scripts": {
+    "build":  "tsc",
+    "dev":    "tsx watch src/index.ts",
+    "start":  "node dist/index.js",
+    "setup":  "node dist/setup.js",
+    "clean":  "rm -rf dist",
+    "prepublishOnly": "npm run clean && npm run build"
+  },
+  "keywords": [
+    "excalidraw", "mcp", "model-context-protocol",
+    "claude", "whiteboard", "diagram", "ai-tools"
+  ],
+  "author": "",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": ""
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.6.1",
+    "ws":  "^8.18.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/ws":   "^8.5.13",
+    "tsx":         "^4.19.2",
+    "typescript":  "^5.7.2"
+  }
+}
